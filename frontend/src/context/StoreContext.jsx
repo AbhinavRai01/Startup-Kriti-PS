@@ -5,7 +5,7 @@ export const StoreContext = createContext(null)
 
 const StoreContextProvider = (props) => {
 
-    const [cartItems, setCartItems] = useState({});
+    const [cartItems, setCartItems] = useState([]);
     const url = "http://localhost:4000"
     const [token,setToken] = useState("")
     const [food_list,setFoodList] = useState([])
@@ -14,33 +14,87 @@ const StoreContextProvider = (props) => {
     const [filterFood,setFilterFood]=useState(null);
     const [filterCat,setFilterCat]=useState(null)
 
+    const removeItem = (id) => {
 
-    const addToCart = async (itemId) => {
-        if (!cartItems[itemId]) {
-            setCartItems((prev) => ({ ...prev, [itemId]: 1 }))
-        }
-        else {
-            setCartItems((prev) => ({ ...prev, [itemId]: prev[itemId] + 1 }))
-        }
-        if (token){
-            await axios.post(url+"/api/cart/add",{itemId},{headers:{token}})
-        }
+
     }
 
-    const removeFromCart = async (itemId) => {
-        setCartItems((prev) => ({ ...prev, [itemId]: prev[itemId] - 1 }))
-        if (token) {
-            await axios.post(url+"/api/cart/remove",{itemId},{headers:{token}})
-        }
-    }
 
-    const getTotalCartAmount = () => {
+    const addToCart = (item, farm) => {
+        setCartItems((prevCart) => {
+          const existingItem = prevCart.find(cartItem => cartItem.productName === item.productName);
+          if (existingItem) {
+            return prevCart.map(cartItem =>
+              cartItem.productName === item.productName
+                ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                : cartItem
+            );
+          } else {
+            const farmObj = farm ? farm: (findFarmIdOfLeastPrice(item));
+            console.log(cartItems);
+            return [...prevCart, { productName: item.productName, quantity: 1, farmObj:farmObj}];
+            
+          }
+        });
+      };
+
+      const changeFarmInCart = (item, newFarm) => {
+        setCartItems((prevCart) => {
+          return prevCart.map((cartItem) => {
+            if (cartItem.productName === item.productName) {
+              // Update the farm object for the item
+              return { ...cartItem, farmObj: newFarm };
+            }
+            return cartItem; // Leave other items unchanged
+          });
+        });
+      };
+    
+
+      const findFarmIdOfLeastPrice = (item) => {
+        if (!item.prices || item.prices.length === 0) return null; 
+
+        const price = 0;
+      
+        const minPriceEntry = item.prices.reduce((min, current) => 
+          current.price < min.price ? current : min 
+        );
+      
+        return minPriceEntry; 
+      };
+    
+      // Increase item quantity in cart
+      const countInc = (item) => {
+        setCartItems((prevCart) =>
+          prevCart.map(cartItem =>
+            cartItem.productName === item.productName
+              ? { ...cartItem, quantity: cartItem.quantity + 1 }
+              : cartItem
+          )
+        );
+      };
+    
+      // Decrease item quantity in cart
+      const countDec = (item) => {
+        setCartItems((prevCart) =>
+          prevCart
+            .map(cartItem =>
+              cartItem.productName === item.productName
+                ? { ...cartItem, quantity: cartItem.quantity - 1 }
+                : cartItem
+            )
+            .filter(cartItem => cartItem.quantity > 0) // Remove item if quantity reaches 0
+        );
+      };
+
+      const getTotalCartAmount = () => {
         let totalAmount = 0;
-        for (const item in cartItems) 
-        {
-            if (cartItems[item] > 0) {
-                let itemInfo = food_list.find((product) => product._id === item)
-                totalAmount += itemInfo.price * cartItems[item];
+        console.log(cartItems);
+        // Use for...of to loop through each item in cartItems
+        for (const item of cartItems) {
+            // Check if farmObj exists and then calculate the price
+            if (item.farmObj) {
+                totalAmount += item.farmObj.price * item.quantity;
             }
         }
         return totalAmount;
@@ -74,7 +128,8 @@ const StoreContextProvider = (props) => {
         cartItems,
         setCartItems,
         addToCart,
-        removeFromCart,
+        countDec,
+        countInc,
         getTotalCartAmount,
         url,
         token,
@@ -84,7 +139,7 @@ const StoreContextProvider = (props) => {
         BuyPage,
         setBuyPage,
         filterFood,setFilterFood,
-        filterCat,setFilterCat
+        filterCat,setFilterCat, changeFarmInCart
     }
 
     return (
